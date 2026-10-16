@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Визуализатор синтаксической разметки</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body>
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Учебный проект · ТРПО</p>
+      <h1>Визуализатор синтаксической разметки</h1>
+      <p class="subtitle">Просмотр готовой разметки без самостоятельного синтаксического анализа.</p>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel upload-panel" aria-labelledby="upload-heading">
+      <h2 id="upload-heading">Входные данные</h2>
+      <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data">
+        <label for="json-file">JSON-документ</label>
+        <div class="upload-row">
+          <input id="json-file" name="file" type="file" accept=".json,application/json" required>
+          <button type="submit">Загрузить и проверить</button>
+        </div>
+      </form>
+      <p class="hint">До 2 МиБ. Исходный текст и координаты проверяются до отображения.</p>
+      {% if filename %}<p class="filename">Файл: {{ filename }}</p>{% endif %}
+      {% if errors %}
+      <div class="error-box" role="alert">
+        <h3>Документ не принят</h3>
+        <ul>{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+    </section>
+
+    {% if document %}
+    <section class="workspace">
+      <section class="panel text-panel" aria-labelledby="text-heading">
+        <div class="section-heading">
+          <div>
+            <h2 id="text-heading">Текст документа</h2>
+            <p class="hint">Выберите размеченное слово, чтобы открыть карточку.</p>
+          </div>
+          <span class="status">{{ "Полная разметка" if document.analysis.status == "complete" else "Частичная разметка" }}</span>
+        </div>
+        <div id="annotated-text" class="annotated-text" aria-label="Исходный текст"></div>
+        <div class="legend" aria-label="Условные обозначения">
+          <span class="legend-item role-subject">Подлежащее</span>
+          <span class="legend-item role-predicate">Сказуемое</span>
+          <span class="legend-item role-definition">Определение</span>
+          <span class="legend-item role-object">Дополнение</span>
+          <span class="legend-item role-adverbial">Обстоятельство</span>
+        </div>
+      </section>
+
+      <aside class="panel details-panel" aria-labelledby="details-heading">
+        <h2 id="details-heading">Карточка слова</h2>
+        <p class="hint" id="empty-selection">Выберите слово в тексте.</p>
+        <div id="token-card" hidden>
+          <p class="token-surface" id="card-surface"></p>
+          <dl>
+            <dt>Лемма</dt><dd id="card-lemma">—</dd>
+            <dt>Часть речи</dt><dd id="card-pos">—</dd>
+            <dt>Синтаксическая роль</dt><dd id="card-role">—</dd>
+            <dt>Отношение</dt><dd id="card-relation">—</dd>
+          </dl>
+          <h3>Употребления в документе</h3>
+          <p class="hint">Совпадение по словоформе</p>
+          <ul id="surface-occurrences" class="occurrence-list"></ul>
+          <p class="hint">Совпадение по лемме</p>
+          <ul id="lemma-occurrences" class="occurrence-list"></ul>
+        </div>
+      </aside>
+    </section>
+    {% endif %}
+  </main>
+  {% if document %}
+  <script>
+    window.ANNOTATION_DOCUMENT = {{ document | tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+  {% endif %}
+</body>
+</html>
