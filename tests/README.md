@@ -12,4 +12,10 @@
 - веб-маршруты и ошибки загрузки;
 - отказ/недоступность словарного источника.
 
-Модульные проверки схемы, семантического валидатора и фикстур `examples/` реализованы в `tests/test_annotation_validator.py` и `tests/test_fixtures.py`. Их результат фиксируется в `docs/development/CURRENT_STATE.md` только после фактического запуска. Интеграционные тесты Flask, карточки, поиска и словарного источника ещё не написаны.
+Сейчас реализовано:
+- `tests/test_annotation_validator.py` — схема и семантика на синтетических примерах;
+- `tests/test_fixtures.py` — все файлы из `examples/valid` и `examples/invalid`;
+- `tests/test_document_loader.py` — контракт `load_bytes` (Accepted / Rejected, коды HTTP).
+
+Интеграционные тесты Flask-маршрутов, карточки, поиска и словарного источника ещё не написаны.
+Результат прогона фиксируется в `docs/development/CURRENT_STATE.md` только после фактического запуска.
