@@ -63,6 +63,7 @@ def validate_semantics(data: dict[str, Any]) -> list[ValidationIssue]:
     token_ids: set[str] = set()
     token_by_id: dict[str, dict[str, Any]] = {}
     previous_token_start = -1
+    previous_token_end = -1
     for index, token in enumerate(tokens):
         path = f"$.analysis.tokens[{index}]"
         if not isinstance(token, dict):
@@ -82,7 +83,10 @@ def validate_semantics(data: dict[str, Any]) -> list[ValidationIssue]:
             continue
         if start < previous_token_start:
             add("token_order", path, "tokens must be ordered by start coordinate")
+        if start < previous_token_end:
+            add("overlapping_token_ranges", path, "token ranges must not overlap")
         previous_token_start = start
+        previous_token_end = max(previous_token_end, end)
 
         sid = token.get("sentence_id")
         if sid not in sentence_ids:
