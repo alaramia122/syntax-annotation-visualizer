@@ -1,0 +1,66 @@
+:root {
+  color-scheme: light;
+  --ink: #202a35;
+  --muted: #647181;
+  --paper: #f4f6f8;
+  --panel: #ffffff;
+  --line: #dce2e8;
+  --accent: #315d80;
+  --danger: #9b2c2c;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 16px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.page-header { padding: 32px max(20px, calc((100vw - 1180px) / 2)); background: #fff; border-bottom: 1px solid var(--line); }
+h1, h2, h3, p { margin-top: 0; }
+h1 { margin-bottom: 8px; font-size: clamp(1.6rem, 3vw, 2.2rem); line-height: 1.2; }
+h2 { font-size: 1.2rem; margin-bottom: 14px; }
+h3 { font-size: 1rem; margin: 20px 0 8px; }
+.eyebrow { margin-bottom: 8px; color: var(--accent); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; font-size: .75rem; }
+.subtitle, .hint { color: var(--muted); }
+.subtitle { margin-bottom: 0; }
+main { max-width: 1180px; padding: 24px 20px 48px; margin: auto; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 22px; min-width: 0; }
+.upload-panel { margin-bottom: 20px; }
+label { display: block; font-weight: 650; margin-bottom: 8px; }
+.upload-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+input[type="file"] { max-width: 100%; flex: 1; min-width: 220px; }
+button { border: 0; border-radius: 8px; background: var(--accent); color: white; padding: 10px 16px; font: inherit; font-weight: 650; cursor: pointer; }
+button:hover { filter: brightness(.92); }
+button:focus-visible, input:focus-visible, .token:focus-visible { outline: 3px solid #8bb8df; outline-offset: 3px; }
+.hint { font-size: .9rem; margin: 8px 0 0; }
+.filename { margin: 12px 0 0; font-size: .9rem; }
+.error-box { margin-top: 16px; border: 1px solid #e6b6b6; background: #fff4f4; color: var(--danger); border-radius: 8px; padding: 14px 16px; }
+.error-box h3 { margin-top: 0; }
+.error-box ul { margin-bottom: 0; padding-left: 20px; }
+.workspace { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, .9fr); gap: 20px; align-items: start; }
+.section-heading { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+.status { flex: 0 0 auto; border-radius: 999px; padding: 4px 9px; background: #eef3f7; color: #3f566a; font-size: .78rem; }
+.annotated-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 1.25rem; line-height: 2.5; padding: 14px 2px; }
+.token { border: 0; border-radius: 2px; background: transparent; color: inherit; padding: 0 1px 2px; margin: 0; font: inherit; font-weight: inherit; line-height: inherit; cursor: pointer; white-space: pre-wrap; }
+.token.selected { background: #eaf3fb; outline: 1px solid #9abbd7; }
+.role-subject { text-decoration-line: underline; text-decoration-style: solid; text-decoration-thickness: 2px; text-underline-offset: 5px; }
+.role-predicate { text-decoration-line: underline; text-decoration-style: double; text-decoration-thickness: 2px; text-underline-offset: 5px; }
+.role-definition { text-decoration-line: underline; text-decoration-style: wavy; text-decoration-thickness: 1.5px; text-underline-offset: 5px; }
+.role-object { text-decoration-line: underline; text-decoration-style: dotted; text-decoration-thickness: 2px; text-underline-offset: 5px; }
+.role-adverbial { text-decoration-line: underline; text-decoration-style: dashed; text-decoration-thickness: 2px; text-underline-offset: 5px; }
+.legend { border-top: 1px solid var(--line); padding-top: 14px; display: flex; gap: 12px 18px; flex-wrap: wrap; }
+.legend-item { font-size: .82rem; padding-bottom: 2px; }
+.details-panel { position: sticky; top: 16px; }
+.token-surface { font-size: 1.6rem; font-weight: 750; margin-bottom: 12px; overflow-wrap: anywhere; }
+dl { display: grid; grid-template-columns: minmax(90px, .8fr) minmax(0, 1.2fr); gap: 7px 12px; margin: 0; }
+dt { color: var(--muted); }
+dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.occurrence-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.occurrence-list button { width: 100%; text-align: left; background: #f0f4f7; color: var(--ink); font-weight: 500; padding: 7px 9px; }
+.occurrence-list button:hover { background: #e1ebf2; }
+@media (max-width: 760px) {
+  .workspace { grid-template-columns: 1fr; }
+  .details-panel { position: static; }
+  .page-header { padding-top: 24px; padding-bottom: 24px; }
+  .panel { padding: 17px; }
+}
