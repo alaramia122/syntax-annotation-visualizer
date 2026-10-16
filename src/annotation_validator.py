@@ -97,6 +97,8 @@ def validate_semantics(data: dict[str, Any]) -> list[ValidationIssue]:
             surface = text[start:end]
             if not surface or surface.isspace():
                 add("empty_word_surface", path, "word token must point to non-whitespace text")
+            elif any(character.isspace() for character in surface):
+                add("whitespace_in_word_surface", path, "word token range must not include whitespace characters")
         syntax = token.get("syntax")
         if syntax is not None and isinstance(syntax, dict):
             head = syntax.get("head", "__missing__")
