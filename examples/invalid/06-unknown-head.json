@@ -1,5 +1,55 @@
 {
-  "id": "example-001",
-  "language": "ru",
-  "text": "Кот спит."
+  "schema_version": "1.0",
+  "document": {
+    "id": "example-001",
+    "language": "ru",
+    "text": "Кот спит."
+  },
+  "analysis": {
+    "status": "complete",
+    "sentences": [
+      {
+        "id": "s1",
+        "start": 0,
+        "end": 9
+      }
+    ],
+    "tokens": [
+      {
+        "id": "t1",
+        "start": 0,
+        "end": 3,
+        "kind": "word",
+        "sentence_id": "s1",
+        "lemma": "кот",
+        "pos": "NOUN",
+        "syntax": {
+          "role": "SUBJECT",
+          "head": "missing",
+          "relation": "nsubj"
+        }
+      },
+      {
+        "id": "t2",
+        "start": 4,
+        "end": 8,
+        "kind": "word",
+        "sentence_id": "s1",
+        "lemma": "спать",
+        "pos": "VERB",
+        "syntax": {
+          "role": "PREDICATE",
+          "head": null,
+          "relation": "root"
+        }
+      },
+      {
+        "id": "t3",
+        "start": 8,
+        "end": 9,
+        "kind": "punctuation",
+        "sentence_id": "s1"
+      }
+    ]
+  }
 }
