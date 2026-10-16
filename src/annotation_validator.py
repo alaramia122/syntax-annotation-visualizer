@@ -97,12 +97,11 @@ def validate_semantics(data: dict[str, Any]) -> list[ValidationIssue]:
                 add("token_outside_sentence", path, "token range must be contained in its sentence range")
 
         kind = token.get("kind")
-        if kind == "word":
-            surface = text[start:end]
-            if not surface or surface.isspace():
-                add("empty_word_surface", path, "word token must point to non-whitespace text")
-            elif any(character.isspace() for character in surface):
-                add("whitespace_in_word_surface", path, "word token range must not include whitespace characters")
+        surface = text[start:end]
+        if not surface or surface.isspace():
+            add("empty_token_surface", path, "token must point to non-whitespace text")
+        elif kind == "word" and any(character.isspace() for character in surface):
+            add("whitespace_in_word_surface", path, "word token range must not include whitespace characters")
         syntax = token.get("syntax")
         if syntax is not None and isinstance(syntax, dict):
             head = syntax.get("head", "__missing__")
