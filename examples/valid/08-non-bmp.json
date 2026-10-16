@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "document": {
+    "id": "example-001",
+    "language": "ru",
+    "text": "🛰️ летит"
+  },
+  "analysis": {
+    "status": "partial",
+    "sentences": [
+      {
+        "id": "s1",
+        "start": 0,
+        "end": 8
+      }
+    ],
+    "tokens": [
+      {
+        "id": "t1",
+        "start": 0,
+        "end": 3,
+        "kind": "word",
+        "sentence_id": "s1"
+      },
+      {
+        "id": "t2",
+        "start": 4,
+        "end": 8,
+        "kind": "word",
+        "sentence_id": "s1"
+      }
+    ]
+  }
+}
