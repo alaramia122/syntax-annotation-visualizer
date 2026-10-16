@@ -207,3 +207,62 @@ def test_overlapping_token_ranges_rejected():
     doc["analysis"]["tokens"][1]["start"] = 2
     assert any(i.code == "overlapping_token_ranges" for i in validate_semantics(doc))
 
+
+def test_word_token_cannot_include_internal_whitespace():
+    doc = valid_document()
+    doc["analysis"]["tokens"][0]["end"] = 5
+    assert any(i.code == "whitespace_in_word_surface" for i in validate_semantics(doc))
+
+
+def test_whitespace_only_punctuation_token_rejected():
+    doc = {
+        "schema_version": "1.0",
+        "document": {"id": "space", "language": "ru", "text": " "},
+        "analysis": {
+            "status": "partial",
+            "sentences": [{"id": "s1", "start": 0, "end": 1}],
+            "tokens": [{"id": "p1", "start": 0, "end": 1, "kind": "punctuation", "sentence_id": "s1"}],
+        },
+    }
+    assert any(i.code == "empty_token_surface" for i in validate_semantics(doc))
+
+
+def test_token_must_be_contained_in_sentence():
+    doc = valid_document()
+    doc["analysis"]["sentences"][0]["end"] = 7
+    assert any(i.code == "token_outside_sentence" for i in validate_semantics(doc))
+
+
+def test_duplicate_sentence_id_rejected():
+    doc = valid_document()
+    doc["analysis"]["sentences"].append({"id": "s1", "start": 0, "end": 2})
+    assert any(i.code == "duplicate_sentence_id" for i in validate_semantics(doc))
+
+
+def test_non_root_relation_requires_head():
+    doc = valid_document()
+    doc["analysis"]["tokens"][0]["syntax"]["head"] = None
+    assert any(i.code == "missing_head" for i in validate_semantics(doc))
+
+
+def test_empty_token_range_rejected():
+    doc = valid_document()
+    doc["analysis"]["tokens"][0]["start"] = doc["analysis"]["tokens"][0]["end"]
+    assert any(i.code == "token_range" for i in validate_semantics(doc))
+
+
+def test_sentence_ranges_may_have_gaps():
+    doc = valid_document()
+    doc["document"]["text"] = "Кот.  Спит."
+    doc["analysis"]["sentences"] = [
+        {"id": "s1", "start": 0, "end": 4},
+        {"id": "s2", "start": 6, "end": 11},
+    ]
+    doc["analysis"]["tokens"] = [
+        {"id": "t1", "start": 0, "end": 3, "kind": "word", "sentence_id": "s1",
+         "syntax": {"role": "SUBJECT", "head": None, "relation": "root"}},
+        {"id": "t2", "start": 6, "end": 10, "kind": "word", "sentence_id": "s2",
+         "syntax": {"role": "PREDICATE", "head": None, "relation": "root"}},
+    ]
+    assert validate_semantics(doc) == []
+
