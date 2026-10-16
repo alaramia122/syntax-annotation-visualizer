@@ -1,8 +1,24 @@
-"""Семантическая проверка документа с разметкой.
+"""Семантическая проверка документа с синтаксической разметкой.
 
-Структуру и типы полей проверяет JSON Schema.
-Здесь — связи между полями, которые схемой выразить неудобно:
-уникальность id, границы токенов, корректность head, циклы и т.п.
+Структуру и типы полей (обязательность, enum, формат строк и чисел)
+проверяет JSON Schema. Этот модуль закрывает то, что схемой выразить
+неудобно или невозможно:
+
+  • уникальность id предложений и токенов;
+  • согласованность диапазонов с длиной текста и друг с другом;
+  • вложенность токена в своё предложение;
+  • корректность ссылок head (существование, то же предложение, не self);
+  • циклы в цепочках head;
+  • согласование analysis.status=complete с наличием ролей у слов.
+
+Предполагается, что на вход уже пришёл объект, прошедший схему.
+Функция всё же защитная: при неожиданной форме не падает с KeyError,
+а возвращает issue с кодом structure — так проще вызывать её из
+разных мест и не дублировать проверки типов.
+
+Координаты start/end — индексы кодовых точек Unicode (как у срезов
+строки в Python). bool как координата отвергается отдельно: в Python
+bool — подкласс int, и без явной проверки True/False пролезли бы как 1/0.
 """
 from __future__ import annotations
 
@@ -12,7 +28,12 @@ from typing import Any
 
 @dataclass(frozen=True)
 class ValidationIssue:
-    """Одна семантическая ошибка: код, путь в JSON и текст для пользователя."""
+    """Одна семантическая ошибка для пользователя и для тестов.
+
+    code  — стабильный машинный код (фикстуры и тесты завязаны на него);
+    path  — путь в духе $.analysis.tokens[0].syntax.head;
+    message — текст, который можно показать как есть.
+    """
 
     code: str
     path: str
@@ -20,10 +41,10 @@ class ValidationIssue:
 
 
 def validate_semantics(data: dict[str, Any]) -> list[ValidationIssue]:
-    """Возвращает список семантических проблем.
+    """Возвращает список семантических проблем (пустой — всё в порядке).
 
-    Вызывать после успешной проверки по JSON Schema.
-    Функция защитная: при кривой структуре не падает, а сообщает об этом.
+    Не исправляет документ и не останавливается на первой ошибке:
+    лучше показать сразу несколько независимых замечаний.
     """
     issues: list[ValidationIssue] = []
     document = data.get("document")
@@ -40,7 +61,10 @@ def validate_semantics(data: dict[str, Any]) -> list[ValidationIssue]:
     def add(code: str, path: str, message: str) -> None:
         issues.append(ValidationIssue(code, path, message))
 
-    # --- предложения ---
+    # ----- предложения -----
+    # Собираем id и диапазоны, параллельно проверяя порядок и пересечения.
+    # Допускаются разрывы между предложениями (пробелы, мусор между ними),
+    # но не наложения и не «откат» start назад.
     sentence_ids: set[str] = set()
     sentence_ranges: dict[str, tuple[int, int]] = {}
     previous_sentence_end = 0
@@ -64,7 +88,7 @@ def validate_semantics(data: dict[str, Any]) -> list[ValidationIssue]:
             add("sentence_order", path, "sentence ranges must be ordered and non-overlapping")
         previous_sentence_end = max(previous_sentence_end, end)
 
-    # --- токены ---
+    # ----- токены: диапазоны, поверхность, принадлежность предложению -----
     token_ids: set[str] = set()
     token_by_id: dict[str, dict[str, Any]] = {}
     previous_token_start = -1
@@ -83,7 +107,7 @@ def validate_semantics(data: dict[str, Any]) -> list[ValidationIssue]:
             token_ids.add(tid)
             token_by_id[tid] = token
 
-        # Пустой диапазон (start == end) для токена запрещён.
+        # У токена пустой диапазон (start == end) запрещён: нечего подчёркивать.
         if not _valid_range(start, end, len(text)) or start == end:
             add("token_range", path, "token range must satisfy 0 <= start < end <= text length")
             continue
@@ -102,16 +126,21 @@ def validate_semantics(data: dict[str, Any]) -> list[ValidationIssue]:
             if start < s_start or end > s_end:
                 add("token_outside_sentence", path, "token range must be contained in its sentence range")
 
+        # Поверхность берём срезом исходного текста — канонический источник символов.
         kind = token.get("kind")
         surface = text[start:end]
         if not surface or surface.isspace():
             add("empty_token_surface", path, "token must point to non-whitespace text")
         elif kind == "word" and any(ch.isspace() for ch in surface):
+            # У word внутри диапазона не должно быть пробелов; пунктуация
+            # и прочие kind этим правилом не ограничены.
             add("whitespace_in_word_surface", path, "word token range must not include whitespace characters")
 
+        # ----- синтаксис одного токена (без проверки «head существует») -----
         syntax = token.get("syntax")
         if syntax is not None and isinstance(syntax, dict):
-            # sentinel: поле head может отсутствовать — это не то же самое, что null
+            # sentinel: поля head может не быть вовсе — это не то же, что null.
+            # null у non-root с relation — отдельная ошибка missing_head.
             head = syntax.get("head", "__missing__")
             if head != "__missing__" and head is not None and not isinstance(head, str):
                 add("head_type", f"{path}.syntax.head", "head must be a token id or null")
@@ -122,7 +151,8 @@ def validate_semantics(data: dict[str, Any]) -> list[ValidationIssue]:
             if syntax.get("relation") != "root" and syntax.get("relation") and head is None:
                 add("missing_head", f"{path}.syntax.head", "non-root relation with a relation label must reference a head")
 
-    # Проверка, что head указывает на существующий токен того же предложения.
+    # ----- head: существование и то же предложение -----
+    # Вынесено во второй проход: к этому моменту token_by_id уже полный.
     for index, token in enumerate(tokens):
         if not isinstance(token, dict):
             continue
@@ -149,7 +179,9 @@ def validate_semantics(data: dict[str, Any]) -> list[ValidationIssue]:
 
     _add_head_cycles(tokens, add)
 
-    # При status=complete у каждого слова должна быть роль.
+    # ----- полнота разметки -----
+    # status=complete обещает, что у каждого word есть роль.
+    # partial допускает слова без syntax/role — это штатный сценарий.
     status = analysis.get("status")
     if status == "complete":
         for index, token in enumerate(tokens):
@@ -166,7 +198,15 @@ def validate_semantics(data: dict[str, Any]) -> list[ValidationIssue]:
 
 
 def _add_head_cycles(tokens: list[Any], add) -> None:
-    """Ищет циклы в цепочках head. Самоссылка уже поймана кодом self_head."""
+    """Ищет циклы в ориентированном графе head.
+
+    Самоссылка (token → token) уже закрыта кодом self_head и в граф
+    не попадает. Здесь — циклы длины 2 и больше (A→B→A, A→B→C→A, …).
+
+    Обход с запоминанием пути: если текущий узел уже встречался в
+    текущем пути, все вершины цикла помечаются ошибкой head_cycle.
+    reported не даёт ругаться на один и тот же узел многократно.
+    """
     heads: dict[str, str] = {}
     index_by_id: dict[str, int] = {}
     for index, token in enumerate(tokens):
@@ -206,7 +246,11 @@ def _add_head_cycles(tokens: list[Any], add) -> None:
 
 
 def _valid_range(start: Any, end: Any, text_length: int) -> bool:
-    # bool — подкласс int, но координатой быть не должен.
+    """Проверяет, что start/end — целые координаты в пределах текста.
+
+    bool отвергаем явно: isinstance(True, int) == True в Python, но
+    True/False как смещения в разметке бессмысленны и опасны.
+    """
     return (
         isinstance(start, int)
         and not isinstance(start, bool)
