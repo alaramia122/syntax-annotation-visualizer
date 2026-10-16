@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "document": {
+    "id": "example-001",
+    "language": "ru",
+    "text": "Привет!"
+  },
+  "analysis": {
+    "status": "complete",
+    "sentences": [
+      {
+        "id": "s1",
+        "start": 0,
+        "end": 7
+      }
+    ],
+    "tokens": [
+      {
+        "id": "t1",
+        "start": 0,
+        "end": 6,
+        "kind": "word",
+        "sentence_id": "s1",
+        "syntax": {
+          "role": "UNKNOWN_ROLE",
+          "head": null,
+          "relation": "root"
+        }
+      },
+      {
+        "id": "t2",
+        "start": 6,
+        "end": 7,
+        "kind": "punctuation",
+        "sentence_id": "s1"
+      }
+    ]
+  }
+}
