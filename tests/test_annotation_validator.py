@@ -201,3 +201,9 @@ def test_token_start_order_is_checked():
         doc["analysis"]["tokens"][1], doc["analysis"]["tokens"][0]
     )
     assert any(i.code == "token_order" for i in validate_semantics(doc))
+
+def test_overlapping_token_ranges_rejected():
+    doc = valid_document()
+    doc["analysis"]["tokens"][1]["start"] = 2
+    assert any(i.code == "overlapping_token_ranges" for i in validate_semantics(doc))
+
