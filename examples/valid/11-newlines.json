@@ -1,0 +1,67 @@
+{
+  "schema_version": "1.0",
+  "document": {
+    "id": "example-011",
+    "language": "ru",
+    "text": "Кот.\n\nСпит."
+  },
+  "analysis": {
+    "status": "complete",
+    "sentences": [
+      {
+        "id": "s1",
+        "start": 0,
+        "end": 4
+      },
+      {
+        "id": "s2",
+        "start": 6,
+        "end": 11
+      }
+    ],
+    "tokens": [
+      {
+        "id": "t1",
+        "start": 0,
+        "end": 3,
+        "kind": "word",
+        "sentence_id": "s1",
+        "lemma": "кот",
+        "pos": "NOUN",
+        "syntax": {
+          "role": "SUBJECT",
+          "head": null,
+          "relation": "root"
+        }
+      },
+      {
+        "id": "t2",
+        "start": 3,
+        "end": 4,
+        "kind": "punctuation",
+        "sentence_id": "s1"
+      },
+      {
+        "id": "t3",
+        "start": 6,
+        "end": 10,
+        "kind": "word",
+        "sentence_id": "s2",
+        "lemma": "спать",
+        "pos": "VERB",
+        "syntax": {
+          "role": "PREDICATE",
+          "head": null,
+          "relation": "root"
+        }
+      },
+      {
+        "id": "t4",
+        "start": 10,
+        "end": 11,
+        "kind": "punctuation",
+        "sentence_id": "s2"
+      }
+    ]
+  }
+}

@@ -130,6 +130,8 @@ def validate_semantics(data: dict[str, Any]) -> list[ValidationIssue]:
                 if own_sentence != head_sentence:
                     add("cross_sentence_head", f"$.analysis.tokens[{index}].syntax.head", "head must belong to the same sentence")
 
+    _add_head_cycles(tokens, add)
+
     status = analysis.get("status")
     if status == "complete":
         for index, token in enumerate(tokens):
@@ -139,6 +141,46 @@ def validate_semantics(data: dict[str, Any]) -> list[ValidationIssue]:
                     add("incomplete_complete_analysis", f"$.analysis.tokens[{index}].syntax", "word token without a syntax role requires analysis.status='partial'")
 
     return issues
+
+
+def _add_head_cycles(tokens: list[Any], add) -> None:
+    """Reject head chains longer than a self-link. Self-links use code self_head."""
+    heads: dict[str, str] = {}
+    index_by_id: dict[str, int] = {}
+    for index, token in enumerate(tokens):
+        if not isinstance(token, dict):
+            continue
+        token_id = token.get("id")
+        if not isinstance(token_id, str) or not token_id:
+            continue
+        index_by_id[token_id] = index
+        syntax = token.get("syntax")
+        if not isinstance(syntax, dict):
+            continue
+        head = syntax.get("head")
+        if isinstance(head, str) and head != token_id:
+            heads[token_id] = head
+
+    reported: set[str] = set()
+    for start in heads:
+        path: list[str] = []
+        path_index: dict[str, int] = {}
+        current = start
+        while current in heads and current not in reported:
+            if current in path_index:
+                cycle = path[path_index[current]:]
+                for node in cycle:
+                    reported.add(node)
+                    add(
+                        "head_cycle",
+                        f"$.analysis.tokens[{index_by_id[node]}].syntax.head",
+                        "head links must not form a cycle",
+                    )
+                break
+            path_index[current] = len(path)
+            path.append(current)
+            current = heads[current]
+        reported.update(path)
 
 
 def _valid_range(start: Any, end: Any, text_length: int) -> bool:

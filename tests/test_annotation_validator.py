@@ -245,6 +245,22 @@ def test_non_root_relation_requires_head():
     assert any(i.code == "missing_head" for i in validate_semantics(doc))
 
 
+def test_head_cycle_rejected():
+    doc = valid_document()
+    doc["analysis"]["tokens"][1]["syntax"] = {
+        "role": "PREDICATE", "head": "t1", "relation": "nsubj"
+    }
+    assert any(i.code == "head_cycle" for i in validate_semantics(doc))
+
+
+def test_self_head_is_not_reported_as_longer_cycle():
+    doc = valid_document()
+    doc["analysis"]["tokens"][0]["syntax"]["head"] = "t1"
+    codes = {issue.code for issue in validate_semantics(doc)}
+    assert "self_head" in codes
+    assert "head_cycle" not in codes
+
+
 def test_empty_token_range_rejected():
     doc = valid_document()
     doc["analysis"]["tokens"][0]["start"] = doc["analysis"]["tokens"][0]["end"]
