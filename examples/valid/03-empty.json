@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "document": {
+    "id": "example-001",
+    "language": "ru",
+    "text": ""
+  },
+  "analysis": {
+    "status": "partial",
+    "sentences": [],
+    "tokens": []
+  }
+}
