@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.0",
+  "document": {
+    "id": "example-001",
+    "language": "ru",
+    "text": "Он читает её."
+  },
+  "analysis": {
+    "status": "complete",
+    "sentences": [
+      {
+        "id": "s1",
+        "start": 0,
+        "end": 13
+      }
+    ],
+    "tokens": [
+      {
+        "id": "t1",
+        "start": 0,
+        "end": 2,
+        "kind": "word",
+        "sentence_id": "s1",
+        "lemma": "он",
+        "pos": "PRON",
+        "syntax": {
+          "role": "SUBJECT",
+          "head": "t2",
+          "relation": "nsubj"
+        }
+      },
+      {
+        "id": "t2",
+        "start": 3,
+        "end": 9,
+        "kind": "word",
+        "sentence_id": "s1",
+        "lemma": "читать",
+        "pos": "VERB",
+        "syntax": {
+          "role": "PREDICATE",
+          "head": null,
+          "relation": "root"
+        }
+      },
+      {
+        "id": "t3",
+        "start": 10,
+        "end": 12,
+        "kind": "word",
+        "sentence_id": "s1",
+        "lemma": "она",
+        "pos": "PRON",
+        "syntax": {
+          "role": "OBJECT",
+          "head": "t2",
+          "relation": "obj"
+        }
+      },
+      {
+        "id": "t4",
+        "start": 12,
+        "end": 13,
+        "kind": "punctuation",
+        "sentence_id": "s1"
+      }
+    ]
+  }
+}
