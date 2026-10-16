@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/alaramia122/syntax-annotation-visualizer/blob/main/schemas/annotation.schema.json",
+  "title": "Syntax annotation document",
+  "description": "Input contract for the syntax annotation visualizer. Cross-reference and coordinate consistency checks are performed by the semantic validator.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "document", "analysis"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "language", "text"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "language": { "type": "string", "minLength": 1 },
+        "text": { "type": "string" }
+      }
+    },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "sentences", "tokens"],
+      "properties": {
+        "status": { "enum": ["complete", "partial"] },
+        "analyzer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "version": { "type": "string", "minLength": 1 }
+          }
+        },
+        "sentences": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "start", "end"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "start": { "type": "integer", "minimum": 0 },
+              "end": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "tokens": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "start", "end", "kind", "sentence_id"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "start": { "type": "integer", "minimum": 0 },
+              "end": { "type": "integer", "minimum": 0 },
+              "kind": { "enum": ["word", "punctuation"] },
+              "sentence_id": { "type": "string", "minLength": 1 },
+              "lemma": { "type": "string", "minLength": 1 },
+              "pos": { "type": "string", "minLength": 1 },
+              "features": { "type": "object", "additionalProperties": { "type": ["string", "number", "integer", "boolean", "null"] } },
+              "syntax": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "role": { "type": "string", "minLength": 1 },
+                  "head": { "type": ["string", "null"] },
+                  "relation": { "type": "string", "minLength": 1 }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
