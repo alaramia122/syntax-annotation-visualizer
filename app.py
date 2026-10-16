@@ -1,7 +1,16 @@
 """Точка входа Flask-приложения.
 
-Веб-слой только принимает запрос, вызывает загрузчик и отдаёт шаблон.
-Разбор JSON и проверки живут в src.document_loader.
+Веб-слой сознательно тонкий: принять запрос, вызвать загрузчик,
+отдать шаблон. Разбор JSON, схема и семантика живут в
+src.document_loader — так проще тестировать проверки без HTTP.
+
+Маршруты:
+  GET  /        — страница с демонстрационным документом;
+  POST /upload  — загрузка пользовательского JSON.
+
+Лимит размера задаётся и здесь (MAX_CONTENT_LENGTH), и в загрузчике.
+Flask отсекает слишком большое тело до нашего кода (ответ 413 через
+errorhandler); загрузчик дополнительно страхует вызовы вне веб-контекста.
 """
 from __future__ import annotations
 
@@ -18,11 +27,16 @@ DEMO_PATH = ROOT / "examples" / "valid" / "01-basic.json"
 
 
 def load_demo() -> dict[str, Any]:
-    """Демонстрационный документ для первого открытия страницы."""
+    """Демонстрационный документ для первого открытия страницы.
+
+    Файл из examples/valid уже проходит схему и семантику; отдельная
+    проверка при старте не делается, чтобы не замедлять GET /.
+    """
     return json.loads(DEMO_PATH.read_text(encoding="utf-8"))
 
 
 def create_app(test_config: dict[str, Any] | None = None) -> Flask:
+    """Собирает приложение. test_config нужен pytest/test_client."""
     app = Flask(__name__)
     app.config.from_mapping(MAX_CONTENT_LENGTH=DEFAULT_MAX_BYTES)
     if test_config:
@@ -30,8 +44,8 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
 
     @app.get("/")
     def index():
-        # При первом заходе показываем заранее проверенный пример,
-        # чтобы интерфейс не был пустым.
+        # Пустой экран при первом заходе хуже, чем сразу показать пример:
+        # так видны линии ролей, карточка и общая компоновка.
         document = load_demo()
         return render_template(
             "index.html",
@@ -44,6 +58,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     def upload():
         uploaded = request.files.get("file")
         if uploaded is None or not uploaded.filename:
+            # Нет файла — ошибка интерфейса, не ошибка формата документа.
             return (
                 render_template(
                     "index.html",
@@ -54,8 +69,9 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
                 400,
             )
 
-        # Читаем на один байт больше лимита, чтобы отличить
-        # «ровно лимит» от «чуть больше лимита».
+        # Читаем на байт больше лимита: так отличаем «ровно max_bytes»
+        # (ещё допустимо) от «больше max_bytes» (отклонить), даже если
+        # Flask по какой-то причине не сработал раньше.
         raw = uploaded.read(DEFAULT_MAX_BYTES + 1)
         result = load_bytes(raw, max_bytes=DEFAULT_MAX_BYTES)
 
@@ -67,6 +83,8 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
                 filename=uploaded.filename,
             )
 
+        # При отказе предыдущий документ на странице не сохраняем:
+        # в шаблон уходит document=None и список ошибок.
         return (
             render_template(
                 "index.html",
@@ -79,7 +97,8 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
 
     @app.errorhandler(413)
     def too_large(_error):
-        # Срабатывает, если Flask сам отсёк тело запроса по MAX_CONTENT_LENGTH.
+        # Срабатывает, когда Flask сам отсёк тело по MAX_CONTENT_LENGTH,
+        # до входа в upload(). Текст совпадает с сообщением загрузчика.
         return (
             render_template(
                 "index.html",
