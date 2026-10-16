@@ -18,13 +18,13 @@
       {
         "id": "t1",
         "start": 0,
-        "end": 3,
+        "end": 2,
         "kind": "word",
         "sentence_id": "s1"
       },
       {
         "id": "t2",
-        "start": 4,
+        "start": 3,
         "end": 8,
         "kind": "word",
         "sentence_id": "s1"
