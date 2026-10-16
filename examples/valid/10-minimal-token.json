@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "document": {
+    "id": "example-001",
+    "language": "ru",
+    "text": "A"
+  },
+  "analysis": {
+    "status": "partial",
+    "sentences": [
+      {
+        "id": "s1",
+        "start": 0,
+        "end": 1
+      }
+    ],
+    "tokens": [
+      {
+        "id": "t1",
+        "start": 0,
+        "end": 1,
+        "kind": "word",
+        "sentence_id": "s1"
+      }
+    ]
+  }
+}
