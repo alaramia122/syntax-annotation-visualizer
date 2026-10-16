@@ -1,7 +1,8 @@
-"""Semantic validation for annotation documents.
+"""Семантическая проверка документа с разметкой.
 
-Structural validation is delegated to JSON Schema. This module validates
-cross-field constraints that JSON Schema cannot conveniently express.
+Структуру и типы полей проверяет JSON Schema.
+Здесь — связи между полями, которые схемой выразить неудобно:
+уникальность id, границы токенов, корректность head, циклы и т.п.
 """
 from __future__ import annotations
 
@@ -11,16 +12,18 @@ from typing import Any
 
 @dataclass(frozen=True)
 class ValidationIssue:
+    """Одна семантическая ошибка: код, путь в JSON и текст для пользователя."""
+
     code: str
     path: str
     message: str
 
 
 def validate_semantics(data: dict[str, Any]) -> list[ValidationIssue]:
-    """Return semantic issues for a structurally valid document.
+    """Возвращает список семантических проблем.
 
-    Call JSON Schema validation first. This function is defensive and reports
-    malformed structures rather than relying on unchecked indexing.
+    Вызывать после успешной проверки по JSON Schema.
+    Функция защитная: при кривой структуре не падает, а сообщает об этом.
     """
     issues: list[ValidationIssue] = []
     document = data.get("document")
@@ -37,6 +40,7 @@ def validate_semantics(data: dict[str, Any]) -> list[ValidationIssue]:
     def add(code: str, path: str, message: str) -> None:
         issues.append(ValidationIssue(code, path, message))
 
+    # --- предложения ---
     sentence_ids: set[str] = set()
     sentence_ranges: dict[str, tuple[int, int]] = {}
     previous_sentence_end = 0
@@ -60,6 +64,7 @@ def validate_semantics(data: dict[str, Any]) -> list[ValidationIssue]:
             add("sentence_order", path, "sentence ranges must be ordered and non-overlapping")
         previous_sentence_end = max(previous_sentence_end, end)
 
+    # --- токены ---
     token_ids: set[str] = set()
     token_by_id: dict[str, dict[str, Any]] = {}
     previous_token_start = -1
@@ -78,6 +83,7 @@ def validate_semantics(data: dict[str, Any]) -> list[ValidationIssue]:
             token_ids.add(tid)
             token_by_id[tid] = token
 
+        # Пустой диапазон (start == end) для токена запрещён.
         if not _valid_range(start, end, len(text)) or start == end:
             add("token_range", path, "token range must satisfy 0 <= start < end <= text length")
             continue
@@ -100,10 +106,12 @@ def validate_semantics(data: dict[str, Any]) -> list[ValidationIssue]:
         surface = text[start:end]
         if not surface or surface.isspace():
             add("empty_token_surface", path, "token must point to non-whitespace text")
-        elif kind == "word" and any(character.isspace() for character in surface):
+        elif kind == "word" and any(ch.isspace() for ch in surface):
             add("whitespace_in_word_surface", path, "word token range must not include whitespace characters")
+
         syntax = token.get("syntax")
         if syntax is not None and isinstance(syntax, dict):
+            # sentinel: поле head может отсутствовать — это не то же самое, что null
             head = syntax.get("head", "__missing__")
             if head != "__missing__" and head is not None and not isinstance(head, str):
                 add("head_type", f"{path}.syntax.head", "head must be a token id or null")
@@ -114,6 +122,7 @@ def validate_semantics(data: dict[str, Any]) -> list[ValidationIssue]:
             if syntax.get("relation") != "root" and syntax.get("relation") and head is None:
                 add("missing_head", f"{path}.syntax.head", "non-root relation with a relation label must reference a head")
 
+    # Проверка, что head указывает на существующий токен того же предложения.
     for index, token in enumerate(tokens):
         if not isinstance(token, dict):
             continue
@@ -123,28 +132,41 @@ def validate_semantics(data: dict[str, Any]) -> list[ValidationIssue]:
         head = syntax.get("head")
         if isinstance(head, str):
             if head not in token_by_id:
-                add("unknown_head", f"$.analysis.tokens[{index}].syntax.head", f"unknown head token id: {head}")
+                add(
+                    "unknown_head",
+                    f"$.analysis.tokens[{index}].syntax.head",
+                    f"unknown head token id: {head}",
+                )
             else:
                 own_sentence = token.get("sentence_id")
                 head_sentence = token_by_id[head].get("sentence_id")
                 if own_sentence != head_sentence:
-                    add("cross_sentence_head", f"$.analysis.tokens[{index}].syntax.head", "head must belong to the same sentence")
+                    add(
+                        "cross_sentence_head",
+                        f"$.analysis.tokens[{index}].syntax.head",
+                        "head must belong to the same sentence",
+                    )
 
     _add_head_cycles(tokens, add)
 
+    # При status=complete у каждого слова должна быть роль.
     status = analysis.get("status")
     if status == "complete":
         for index, token in enumerate(tokens):
             if isinstance(token, dict) and token.get("kind") == "word":
                 syntax = token.get("syntax")
                 if not isinstance(syntax, dict) or not syntax.get("role"):
-                    add("incomplete_complete_analysis", f"$.analysis.tokens[{index}].syntax", "word token without a syntax role requires analysis.status='partial'")
+                    add(
+                        "incomplete_complete_analysis",
+                        f"$.analysis.tokens[{index}].syntax",
+                        "word token without a syntax role requires analysis.status='partial'",
+                    )
 
     return issues
 
 
 def _add_head_cycles(tokens: list[Any], add) -> None:
-    """Reject head chains longer than a self-link. Self-links use code self_head."""
+    """Ищет циклы в цепочках head. Самоссылка уже поймана кодом self_head."""
     heads: dict[str, str] = {}
     index_by_id: dict[str, int] = {}
     for index, token in enumerate(tokens):
@@ -184,9 +206,11 @@ def _add_head_cycles(tokens: list[Any], add) -> None:
 
 
 def _valid_range(start: Any, end: Any, text_length: int) -> bool:
-    # bool is a subclass of int in Python, but must not be accepted as a coordinate.
+    # bool — подкласс int, но координатой быть не должен.
     return (
-        isinstance(start, int) and not isinstance(start, bool)
-        and isinstance(end, int) and not isinstance(end, bool)
+        isinstance(start, int)
+        and not isinstance(start, bool)
+        and isinstance(end, int)
+        and not isinstance(end, bool)
         and 0 <= start <= end <= text_length
     )
