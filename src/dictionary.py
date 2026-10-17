@@ -18,7 +18,7 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Literal
 
-# Таймаут короткий: карточка уже показана, справка — дополнение.
+# Таймаут: карточка уже показана, справка — дополнение.
 REQUEST_TIMEOUT_SEC = 8.0
 # Только ASCII: HTTP-заголовки кодируются как latin-1; кириллица
 # в User-Agent вызывала UnicodeEncodeError и статус unavailable.
@@ -66,6 +66,16 @@ def _pick_query(lemma: str | None, surface: str) -> str:
     return str(surface).strip()
 
 
+def _normalize_extract(extract: str) -> str:
+    """Убирает лишние пустые строки и ограничивает длину для карточки."""
+    lines = [ln.strip() for ln in extract.splitlines()]
+    lines = [ln for ln in lines if ln]
+    text = "\n".join(lines)
+    if len(text) > 800:
+        text = text[:797].rstrip() + "…"
+    return text
+
+
 def lookup(
     lemma: str | None,
     surface: str,
@@ -88,18 +98,20 @@ def lookup(
     search = _search_url(query)
     open_fn = opener or urllib.request.urlopen
 
-    # Несколько вариантов заголовка: как в разметке и с заглавной буквы
-    # (в Викисловаре статьи нередко именуются с прописной).
-    titles = [query]
-    if query[:1].islower():
-        titles.append(query[:1].upper() + query[1:])
+    # Варианты заголовка: как в разметке и со сменой регистра первой буквы.
+    titles: list[str] = [query]
+    swapped = query[:1].swapcase() + query[1:]
+    if swapped != query:
+        titles.append(swapped)
 
+    last_network_error = False
     for title in titles:
+        # Без exintro: у статей Викисловаря «вводный» блок до первого
+        # заголовка часто пуст, и API возвращал пустой extract.
         params = {
             "action": "query",
             "format": "json",
             "prop": "extracts",
-            "exintro": "1",
             "explaintext": "1",
             "redirects": "1",
             "titles": title,
@@ -119,11 +131,8 @@ def lookup(
             json.JSONDecodeError,
             UnicodeError,
         ):
-            return DictionaryLookup(
-                status="unavailable",
-                source_name=SOURCE_NAME,
-                search_url=search,
-            )
+            last_network_error = True
+            continue
 
         pages = (payload.get("query") or {}).get("pages") or {}
         if not pages:
@@ -137,13 +146,10 @@ def lookup(
         if not extract:
             continue
 
-        if len(extract) > 800:
-            extract = extract[:797].rstrip() + "…"
-
         return DictionaryLookup(
             status="ok",
             source_name=SOURCE_NAME,
-            text=extract,
+            text=_normalize_extract(extract),
             search_url=search,
         )
 
