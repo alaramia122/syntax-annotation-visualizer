@@ -5,7 +5,8 @@
  *   — исходный текст без потерь символов и пробелов;
  *   — подчёркивания по школьным правилам (см. ADR-004);
  *   — карточка выбранного слова (этап 6);
- *   — поиск употреблений с группировкой по ролям (этап 7).
+ *   — поиск употреблений с группировкой по ролям (этап 7);
+ *   — запрос словарной справки после выбора слова (этап 8).
  *
  * В файле разметки смещения — по кодовым точкам Юникода.
  * В браузере строка режется иначе, поэтому один раз строится
@@ -171,12 +172,97 @@
       renderGroupedOccurrences("lemma-occurrences", lemmaMatches, id);
     }
 
+    // Справка не блокирует карточку: запрос уходит после заполнения полей.
+    loadDictionary(token.lemma || null, surface);
+
     if (scroll) {
       const node = tokenNodes.get(id);
       if (node) {
         node.scrollIntoView({ behavior: "smooth", block: "center" });
       }
     }
+  }
+
+  /**
+   * Запрашивает у сервера краткую справку. Пока ответа нет — «загрузка».
+   * При отказе сети или статусе unavailable основные функции уже работают.
+   */
+  function loadDictionary(lemma, surface) {
+    const statusEl = document.getElementById("dictionary-status");
+    const textEl = document.getElementById("dictionary-text");
+    const sourceEl = document.getElementById("dictionary-source");
+    const linkWrap = document.getElementById("dictionary-link-wrap");
+    const linkEl = document.getElementById("dictionary-link");
+
+    if (statusEl) {
+      statusEl.hidden = false;
+      statusEl.textContent = "Загрузка справки…";
+    }
+    if (textEl) {
+      textEl.hidden = true;
+      textEl.textContent = "";
+    }
+    if (sourceEl) {
+      sourceEl.hidden = true;
+      sourceEl.textContent = "";
+    }
+    if (linkWrap) {
+      linkWrap.hidden = true;
+    }
+
+    const params = new URLSearchParams();
+    if (lemma) {
+      params.set("lemma", lemma);
+    }
+    params.set("surface", surface || "");
+
+    fetch("/dictionary?" + params.toString())
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error("bad status");
+        }
+        return response.json();
+      })
+      .then(function (data) {
+        if (!data || !data.status) {
+          if (statusEl) {
+            statusEl.textContent = "Справка временно недоступна";
+          }
+          return;
+        }
+        if (data.status === "ok" && data.text) {
+          if (statusEl) {
+            statusEl.hidden = true;
+          }
+          if (textEl) {
+            textEl.hidden = false;
+            textEl.textContent = data.text;
+          }
+          if (sourceEl && data.source_name) {
+            sourceEl.hidden = false;
+            sourceEl.textContent = "Источник: " + data.source_name;
+          }
+        } else if (data.status === "not_configured") {
+          if (statusEl) {
+            statusEl.textContent = "Словарный источник не подключён";
+          }
+        } else {
+          if (statusEl) {
+            statusEl.textContent = "Справка временно недоступна";
+          }
+        }
+        if (linkEl && data.search_url) {
+          linkEl.href = data.search_url;
+          if (linkWrap) {
+            linkWrap.hidden = false;
+          }
+        }
+      })
+      .catch(function () {
+        if (statusEl) {
+          statusEl.textContent = "Справка временно недоступна";
+        }
+      });
   }
 
   function setText(id, value) {
