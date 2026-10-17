@@ -5,8 +5,9 @@
 src.document_loader — так проще тестировать проверки без HTTP.
 
 Маршруты:
-  GET  /        — страница с демонстрационным документом;
-  POST /upload  — загрузка пользовательского JSON.
+  GET  /            — страница с демонстрационным документом;
+  POST /upload      — загрузка пользовательского JSON;
+  GET  /dictionary  — краткая справка по слову (не влияет на код страницы).
 
 Лимит размера задаётся и здесь (MAX_CONTENT_LENGTH), и в загрузчике.
 Flask отсекает слишком большое тело до нашего кода (ответ 413 через
@@ -18,9 +19,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-from flask import Flask, render_template, request
+from flask import Flask, jsonify, render_template, request
 
 from src.document_loader import DEFAULT_MAX_BYTES, Accepted, load_bytes
+from src.dictionary import lookup
 
 ROOT = Path(__file__).resolve().parent
 DEMO_PATH = ROOT / "examples" / "valid" / "01-basic.json"
@@ -94,6 +96,25 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             ),
             result.http_status,
         )
+
+    @app.get("/dictionary")
+    def dictionary():
+        """Краткая справка по слову. Отказ источника не меняет код страницы документа.
+
+        Клиент вызывает маршрут после выбора слова; карточка уже заполнена.
+        """
+        lemma = request.args.get("lemma") or None
+        surface = request.args.get("surface") or ""
+        if lemma is not None and not str(lemma).strip():
+            lemma = None
+        result = lookup(lemma, surface)
+        body = {
+            "status": result.status,
+            "source_name": result.source_name,
+            "text": result.text,
+            "search_url": result.search_url,
+        }
+        return jsonify(body)
 
     @app.errorhandler(413)
     def too_large(_error):
