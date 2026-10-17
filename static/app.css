@@ -252,7 +252,16 @@ input:focus-visible,
   padding-bottom: 2px;
 }
 
-.details-panel { position: sticky; top: 16px; }
+/* Карточка не «прилипает» к краю экрана без прокрутки:
+   ограничение по высоте окна + собственная полоса прокрутки. */
+.details-panel {
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 
 .token-surface {
   font-size: 1.6rem;
@@ -352,7 +361,11 @@ dd {
 
 @media (max-width: 760px) {
   .workspace { grid-template-columns: 1fr; }
-  .details-panel { position: static; }
+  .details-panel {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
   .page-header { padding-top: 24px; padding-bottom: 24px; }
   .panel { padding: 17px; }
 }
