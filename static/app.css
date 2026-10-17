@@ -275,6 +275,19 @@ dd {
   overflow-wrap: anywhere;
 }
 
+.feature-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 4px;
+  display: grid;
+  gap: 4px;
+  font-size: .92rem;
+}
+
+.feature-list li {
+  color: var(--ink);
+}
+
 .occurrence-list {
   list-style: none;
   padding: 0;
