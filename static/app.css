@@ -288,6 +288,33 @@ dd {
   color: var(--ink);
 }
 
+.occurrence-groups {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.occurrence-group {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+}
+
+.occurrence-group-title {
+  margin: 0 0 6px;
+  font-size: .85rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.occurrence-empty {
+  list-style: none;
+  color: var(--muted);
+  font-size: .9rem;
+}
+
 .occurrence-list {
   list-style: none;
   padding: 0;
