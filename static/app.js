@@ -5,7 +5,7 @@
  *   — исходный текст без потерь символов и пробелов;
  *   — подчёркивания по школьным правилам (см. ADR-004);
  *   — карточка выбранного слова (этап 6);
- *   — черновик списков употреблений (полная группировка — этап 7).
+ *   — поиск употреблений с группировкой по ролям (этап 7).
  *
  * В файле разметки смещения — по кодовым точкам Юникода.
  * В браузере строка режется иначе, поэтому один раз строится
@@ -15,6 +15,7 @@
   "use strict";
 
   const MISSING = "не указано";
+  const ROLE_MISSING_GROUP = "Роль не указана";
 
   const doc = window.ANNOTATION_DOCUMENT;
   if (!doc || !doc.document || !doc.analysis) {
@@ -40,8 +41,6 @@
     return source.slice(codePointToUtf16[start], codePointToUtf16[end]);
   }
 
-  // Поле есть и непустая строка — показываем как есть; иначе «не указано».
-  // Числа и логические значения из признаков тоже допустимы.
   function displayField(value) {
     if (value === null || value === undefined) {
       return MISSING;
@@ -68,9 +67,6 @@
   let cursor = 0;
   let selectedId = null;
 
-  /**
-   * Класс подчёркивания по школьным правилам разбора предложения.
-   */
   function roleClass(token) {
     const raw = token.syntax && token.syntax.role;
     if (raw == null || String(raw).trim() === "") {
@@ -103,9 +99,17 @@
     return "role-unknown";
   }
 
+  /** Имя группы в списке употреблений: роль как в разметке или запасная подпись. */
+  function roleGroupName(token) {
+    const role = token.syntax && token.syntax.role;
+    if (role == null || String(role).trim() === "") {
+      return ROLE_MISSING_GROUP;
+    }
+    return String(role);
+  }
+
   /**
    * Открывает карточку слова и подсвечивает его в тексте.
-   * Недостающие сведения не угадываются — пишется «не указано».
    */
   function selectToken(id, scroll) {
     const token = byId.get(id);
@@ -127,15 +131,11 @@
       card.hidden = false;
     }
 
-    // Словоформа — срез исходного текста, без «сборки» из полей разметки.
     const surface = sourceSlice(token.start, token.end);
     setText("card-surface", surface);
     setText("card-lemma", displayField(token.lemma));
     setText("card-pos", displayField(token.pos));
-    setText(
-      "card-role",
-      displayField(token.syntax && token.syntax.role)
-    );
+    setText("card-role", displayField(token.syntax && token.syntax.role));
     setText(
       "card-relation",
       displayField(token.syntax && token.syntax.relation)
@@ -143,17 +143,14 @@
 
     renderFeatures(token.features);
 
-    // Списки употреблений: базовая версия; группировка по ролям — этап 7.
-    renderOccurrences(
-      "surface-occurrences",
-      tokens.filter((t) => sourceSlice(t.start, t.end) === surface),
-      id
+    // По словоформе: точное совпадение среза, без смены регистра и обрезки.
+    const surfaceMatches = tokens.filter(
+      (t) => sourceSlice(t.start, t.end) === surface
     );
+    renderGroupedOccurrences("surface-occurrences", surfaceMatches, id);
 
-    const lemmaBlock = document.getElementById("lemma-occurrences-block");
     const lemmaHint = document.getElementById("lemma-occurrences-hint");
     if (!token.lemma) {
-      // Нет леммы в разметке — поиск по лемме не запускаем.
       if (lemmaHint) {
         lemmaHint.textContent = "Лемма в разметке отсутствует";
       }
@@ -165,14 +162,13 @@
       if (lemmaHint) {
         lemmaHint.textContent = "Совпадение по лемме";
       }
+      // Сравнение через toLocaleLowerCase: для кириллицы близко к casefold;
+      // «ё» и «е» не склеиваются.
       const key = String(token.lemma).toLocaleLowerCase();
       const lemmaMatches = tokens.filter(
         (t) => t.lemma && String(t.lemma).toLocaleLowerCase() === key
       );
-      renderOccurrences("lemma-occurrences", lemmaMatches, id);
-    }
-    if (lemmaBlock) {
-      lemmaBlock.hidden = false;
+      renderGroupedOccurrences("lemma-occurrences", lemmaMatches, id);
     }
 
     if (scroll) {
@@ -190,10 +186,6 @@
     }
   }
 
-  /**
-   * Грамматические признаки (features), если они есть в разметке.
-   * Пустой объект или отсутствие поля — «не указано».
-   */
   function renderFeatures(features) {
     const list = document.getElementById("card-features");
     if (!list) {
@@ -226,33 +218,71 @@
     });
   }
 
-  function renderOccurrences(listId, matches, currentId) {
-    const list = document.getElementById(listId);
-    if (!list) {
+  /**
+   * Список употреблений, сгруппированный по синтаксической роли.
+   *
+   * Текущее слово в список не входит.
+   * Порядок групп и элементов — порядок первых вхождений в документе
+   * (токены уже отсортированы по координате начала).
+   * Переход выбирает слово и прокручивает к нему.
+   */
+  function renderGroupedOccurrences(listId, matches, currentId) {
+    const root = document.getElementById(listId);
+    if (!root) {
       return;
     }
-    list.replaceChildren();
+    root.replaceChildren();
 
-    // Текущее слово в список не входит.
     const others = matches.filter((t) => t.id !== currentId);
     if (!others.length) {
       const item = document.createElement("li");
+      item.className = "occurrence-empty";
       item.textContent = "Других употреблений нет";
-      list.append(item);
+      root.append(item);
       return;
     }
 
+    // Сохраняем порядок первого появления роли в документе.
+    const groups = new Map();
     others.forEach((token) => {
-      const item = document.createElement("li");
-      const button = document.createElement("button");
-      const surface = sourceSlice(token.start, token.end);
-      const role =
-        token.syntax && token.syntax.role ? " · " + token.syntax.role : "";
-      button.type = "button";
-      button.textContent = surface + role;
-      button.addEventListener("click", () => selectToken(token.id, true));
-      item.append(button);
-      list.append(item);
+      const name = roleGroupName(token);
+      if (!groups.has(name)) {
+        groups.set(name, []);
+      }
+      groups.get(name).push(token);
+    });
+
+    groups.forEach((groupTokens, groupName) => {
+      const groupItem = document.createElement("li");
+      groupItem.className = "occurrence-group";
+
+      const title = document.createElement("p");
+      title.className = "occurrence-group-title";
+      title.textContent = groupName;
+      groupItem.append(title);
+
+      const sublist = document.createElement("ul");
+      sublist.className = "occurrence-list";
+
+      groupTokens.forEach((token) => {
+        const item = document.createElement("li");
+        const button = document.createElement("button");
+        const surface = sourceSlice(token.start, token.end);
+        // Краткий контекст: словоформа и позиция в тексте (с единицы для человека).
+        button.type = "button";
+        button.textContent =
+          surface + " · позиция " + (token.start + 1);
+        button.setAttribute(
+          "aria-label",
+          "Перейти к «" + surface + "», позиция " + (token.start + 1)
+        );
+        button.addEventListener("click", () => selectToken(token.id, true));
+        item.append(button);
+        sublist.append(item);
+      });
+
+      groupItem.append(sublist);
+      root.append(groupItem);
     });
   }
 
