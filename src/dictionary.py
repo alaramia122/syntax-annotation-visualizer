@@ -83,63 +83,69 @@ def lookup(
             search_url=None,
         )
 
-    params = {
-        "action": "query",
-        "format": "json",
-        "prop": "extracts",
-        "exintro": "1",
-        "explaintext": "1",
-        "redirects": "1",
-        "titles": query,
-    }
-    url = WIKTIONARY_API + "?" + urllib.parse.urlencode(params)
     search = _search_url(query)
     open_fn = opener or urllib.request.urlopen
 
-    try:
-        request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-        with open_fn(request, timeout=REQUEST_TIMEOUT_SEC) as response:
-            raw = response.read()
-        payload = json.loads(raw.decode("utf-8"))
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError, ValueError, json.JSONDecodeError):
+    # Несколько вариантов заголовка: как в разметке и с заглавной буквы
+    # (в Викисловаре статьи нередко именуются с прописной).
+    titles = [query]
+    if query[:1].islower():
+        titles.append(query[:1].upper() + query[1:])
+
+    for title in titles:
+        params = {
+            "action": "query",
+            "format": "json",
+            "prop": "extracts",
+            "exintro": "1",
+            "explaintext": "1",
+            "redirects": "1",
+            "titles": title,
+        }
+        url = WIKTIONARY_API + "?" + urllib.parse.urlencode(params)
+        try:
+            request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+            with open_fn(request, timeout=REQUEST_TIMEOUT_SEC) as response:
+                raw = response.read()
+            payload = json.loads(raw.decode("utf-8"))
+        except (
+            urllib.error.URLError,
+            urllib.error.HTTPError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            json.JSONDecodeError,
+        ):
+            return DictionaryLookup(
+                status="unavailable",
+                source_name=SOURCE_NAME,
+                search_url=search,
+            )
+
+        pages = (payload.get("query") or {}).get("pages") or {}
+        if not pages:
+            continue
+
+        page = next(iter(pages.values()))
+        if page.get("missing") is not None or int(page.get("pageid") or 0) < 0:
+            continue
+
+        extract = (page.get("extract") or "").strip()
+        if not extract:
+            continue
+
+        if len(extract) > 800:
+            extract = extract[:797].rstrip() + "…"
+
         return DictionaryLookup(
-            status="unavailable",
+            status="ok",
             source_name=SOURCE_NAME,
+            text=extract,
             search_url=search,
         )
-
-    pages = (payload.get("query") or {}).get("pages") or {}
-    if not pages:
-        return DictionaryLookup(
-            status="unavailable",
-            source_name=SOURCE_NAME,
-            search_url=search,
-        )
-
-    # MediaWiki отдаёт словарь id → страница; отрицательный id — «страницы нет».
-    page = next(iter(pages.values()))
-    if page.get("missing") is not None or int(page.get("pageid") or 0) < 0:
-        return DictionaryLookup(
-            status="unavailable",
-            source_name=SOURCE_NAME,
-            search_url=search,
-        )
-
-    extract = (page.get("extract") or "").strip()
-    if not extract:
-        return DictionaryLookup(
-            status="unavailable",
-            source_name=SOURCE_NAME,
-            search_url=search,
-        )
-
-    # Ограничиваем длину, чтобы карточка не раздувалась.
-    if len(extract) > 800:
-        extract = extract[:797].rstrip() + "…"
 
     return DictionaryLookup(
-        status="ok",
+        status="unavailable",
         source_name=SOURCE_NAME,
-        text=extract,
         search_url=search,
     )
