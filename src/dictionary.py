@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import json
+import ssl
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -19,12 +20,12 @@ from dataclasses import dataclass
 from typing import Literal
 
 # Таймаут: карточка уже показана, справка — дополнение.
-REQUEST_TIMEOUT_SEC = 8.0
-# Только ASCII: HTTP-заголовки кодируются как latin-1; кириллица
-# в User-Agent вызывала UnicodeEncodeError и статус unavailable.
+REQUEST_TIMEOUT_SEC = 10.0
+# Только ASCII в заголовках (latin-1). Более «браузерный» UA — меньше отказов
+# на стороне Wikimedia, чем краткая служебная строка.
 USER_AGENT = (
-    "syntax-annotation-visualizer/0.1 "
-    "(+https://github.com/alaramia122/syntax-annotation-visualizer; educational)"
+    "Mozilla/5.0 (compatible; syntax-annotation-visualizer/0.1; "
+    "+https://github.com/alaramia122/syntax-annotation-visualizer)"
 )
 WIKTIONARY_API = "https://ru.wiktionary.org/w/api.php"
 SOURCE_NAME = "Русский Викисловарь"
@@ -76,6 +77,40 @@ def _normalize_extract(extract: str) -> str:
     return text
 
 
+def _ssl_context() -> ssl.SSLContext:
+    """Контекст TLS для urlopen.
+
+    На части установок Windows проверка сертификатов у urllib падает,
+    хотя браузер открывает тот же сайт. Сначала системное хранилище,
+    при наличии — bundle certifi.
+    """
+    try:
+        import certifi  # type: ignore
+
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        return ssl.create_default_context()
+
+
+def _fetch_json(url: str, *, opener=None) -> dict:
+    """GET JSON по URL. opener — подмена для тестов."""
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": USER_AGENT,
+            "Accept": "application/json",
+        },
+    )
+    open_fn = opener or urllib.request.urlopen
+    kwargs: dict = {"timeout": REQUEST_TIMEOUT_SEC}
+    # Подмена в тестах часто не принимает context=.
+    if opener is None:
+        kwargs["context"] = _ssl_context()
+    with open_fn(request, **kwargs) as response:
+        raw = response.read()
+    return json.loads(raw.decode("utf-8"))
+
+
 def lookup(
     lemma: str | None,
     surface: str,
@@ -96,7 +131,6 @@ def lookup(
         )
 
     search = _search_url(query)
-    open_fn = opener or urllib.request.urlopen
 
     # Варианты заголовка: как в разметке и со сменой регистра первой буквы.
     titles: list[str] = [query]
@@ -104,7 +138,6 @@ def lookup(
     if swapped != query:
         titles.append(swapped)
 
-    last_network_error = False
     for title in titles:
         # Без exintro: у статей Викисловаря «вводный» блок до первого
         # заголовка часто пуст, и API возвращал пустой extract.
@@ -118,10 +151,7 @@ def lookup(
         }
         url = WIKTIONARY_API + "?" + urllib.parse.urlencode(params)
         try:
-            request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-            with open_fn(request, timeout=REQUEST_TIMEOUT_SEC) as response:
-                raw = response.read()
-            payload = json.loads(raw.decode("utf-8"))
+            payload = _fetch_json(url, opener=opener)
         except (
             urllib.error.URLError,
             urllib.error.HTTPError,
@@ -130,8 +160,8 @@ def lookup(
             ValueError,
             json.JSONDecodeError,
             UnicodeError,
+            ssl.SSLError,
         ):
-            last_network_error = True
             continue
 
         pages = (payload.get("query") or {}).get("pages") or {}
