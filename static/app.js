@@ -18,6 +18,148 @@
   const MISSING = "не указано";
   const ROLE_MISSING_GROUP = "Роль не указана";
 
+  // Подписи для значений из разметки (в файлах часто латиница / Universal Dependencies).
+  // Неизвестные коды показываем как есть — выдумывать перевод нельзя.
+  const POS_RU = {
+    NOUN: "существительное",
+    PROPN: "имя собственное",
+    VERB: "глагол",
+    AUX: "вспомогательный глагол",
+    ADJ: "прилагательное",
+    ADV: "наречие",
+    PRON: "местоимение",
+    DET: "определитель",
+    NUM: "числительное",
+    ADP: "предлог",
+    CCONJ: "сочинительный союз",
+    SCONJ: "подчинительный союз",
+    CONJ: "союз",
+    PART: "частица",
+    INTJ: "междометие",
+    PUNCT: "пунктуация",
+    SYM: "символ",
+    X: "другое",
+  };
+
+  const ROLE_RU = {
+    SUBJECT: "подлежащее",
+    PREDICATE: "сказуемое",
+    DEFINITION: "определение",
+    ATTRIBUTE: "определение",
+    OBJECT: "дополнение",
+    ADVERBIAL: "обстоятельство",
+    ADVERBIAL_MODIFIER: "обстоятельство",
+    "ПОДЛЕЖАЩЕЕ": "подлежащее",
+    "СКАЗУЕМОЕ": "сказуемое",
+    "ОПРЕДЕЛЕНИЕ": "определение",
+    "ДОПОЛНЕНИЕ": "дополнение",
+    "ОБСТОЯТЕЛЬСТВО": "обстоятельство",
+  };
+
+  const RELATION_RU = {
+    root: "корень",
+    nsubj: "подлежащее",
+    "nsubj:pass": "подлежащее (страд.)",
+    obj: "дополнение",
+    iobj: "косвенное дополнение",
+    obl: "обстоятельственный актант",
+    amod: "определение",
+    advmod: "обстоятельство",
+    det: "определитель",
+    case: "падежный показатель",
+    cc: "сочинительный союз",
+    conj: "однородный член",
+    mark: "подчинительный союз",
+    aux: "вспомогательный глагол",
+    cop: "связка",
+    compound: "сложное слово",
+    flat: "неразрывное сочетание",
+    appos: "приложение",
+    nummod: "числительное",
+    punct: "пунктуация",
+    discourse: "дискурсная частица",
+    parataxis: "парцелляция",
+    orphan: "осиротевший элемент",
+    dep: "неопределённая связь",
+    nmod: "именное определение",
+    acl: "определительная клауза",
+    xcomp: "открытое дополнение",
+    ccomp: "изъяснительная клауза",
+    advcl: "обстоятельственная клауза",
+  };
+
+  const FEATURE_KEY_RU = {
+    Case: "падеж",
+    Number: "число",
+    Gender: "род",
+    Person: "лицо",
+    Tense: "время",
+    Aspect: "вид",
+    Mood: "наклонение",
+    Voice: "залог",
+    Degree: "степень",
+    VerbForm: "форма глагола",
+    Animacy: "одушевлённость",
+    Polarity: "полярность",
+    PronType: "тип местоимения",
+    NumType: "тип числительного",
+  };
+
+  const FEATURE_VAL_RU = {
+    Nom: "именительный",
+    Gen: "родительный",
+    Dat: "дательный",
+    Acc: "винительный",
+    Ins: "творительный",
+    Loc: "предложный",
+    Sing: "единственное",
+    Plur: "множественное",
+    Masc: "мужской",
+    Fem: "женский",
+    Neut: "средний",
+    Past: "прошедшее",
+    Pres: "настоящее",
+    Fut: "будущее",
+    Imp: "несоверш. вид / повелит. накл.",
+    Perf: "совершенный",
+    Ind: "изъявительное",
+    Cnd: "условное",
+    Act: "действительный",
+    Pass: "страдательный",
+    Pos: "положительная / утверждение",
+    Cmp: "сравнительная",
+    Sup: "превосходная",
+    Fin: "личная",
+    Inf: "инфинитив",
+    Part: "причастие",
+    Ger: "деепричастие",
+    Anim: "одушевлённое",
+    Inan: "неодушевлённое",
+    Neg: "отрицание",
+  };
+
+  function localizeCode(value, table) {
+    if (value === null || value === undefined) {
+      return MISSING;
+    }
+    if (typeof value === "string" && value.trim() === "") {
+      return MISSING;
+    }
+    const key = String(value);
+    if (Object.prototype.hasOwnProperty.call(table, key)) {
+      return table[key];
+    }
+    const upper = key.toUpperCase();
+    if (Object.prototype.hasOwnProperty.call(table, upper)) {
+      return table[upper];
+    }
+    const lower = key.toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(table, lower)) {
+      return table[lower];
+    }
+    return key;
+  }
+
   const doc = window.ANNOTATION_DOCUMENT;
   if (!doc || !doc.document || !doc.analysis) {
     return;
@@ -30,7 +172,6 @@
 
   const source = doc.document.text;
 
-  // Пересчёт: номер кодовой точки → позиция в строке браузера.
   const codePointToUtf16 = [0];
   let utf16Offset = 0;
   for (const character of source) {
@@ -100,18 +241,14 @@
     return "role-unknown";
   }
 
-  /** Имя группы в списке употреблений: роль как в разметке или запасная подпись. */
   function roleGroupName(token) {
     const role = token.syntax && token.syntax.role;
     if (role == null || String(role).trim() === "") {
       return ROLE_MISSING_GROUP;
     }
-    return String(role);
+    return localizeCode(role, ROLE_RU);
   }
 
-  /**
-   * Открывает карточку слова и подсвечивает его в тексте.
-   */
   function selectToken(id, scroll) {
     const token = byId.get(id);
     if (!token) {
@@ -135,16 +272,18 @@
     const surface = sourceSlice(token.start, token.end);
     setText("card-surface", surface);
     setText("card-lemma", displayField(token.lemma));
-    setText("card-pos", displayField(token.pos));
-    setText("card-role", displayField(token.syntax && token.syntax.role));
+    setText("card-pos", localizeCode(token.pos, POS_RU));
+    setText(
+      "card-role",
+      localizeCode(token.syntax && token.syntax.role, ROLE_RU)
+    );
     setText(
       "card-relation",
-      displayField(token.syntax && token.syntax.relation)
+      localizeCode(token.syntax && token.syntax.relation, RELATION_RU)
     );
 
     renderFeatures(token.features);
 
-    // По словоформе: точное совпадение среза, без смены регистра и обрезки.
     const surfaceMatches = tokens.filter(
       (t) => sourceSlice(t.start, t.end) === surface
     );
@@ -163,8 +302,6 @@
       if (lemmaHint) {
         lemmaHint.textContent = "Совпадение по лемме";
       }
-      // Сравнение через toLocaleLowerCase: для кириллицы близко к casefold;
-      // «ё» и «е» не склеиваются.
       const key = String(token.lemma).toLocaleLowerCase();
       const lemmaMatches = tokens.filter(
         (t) => t.lemma && String(t.lemma).toLocaleLowerCase() === key
@@ -172,7 +309,6 @@
       renderGroupedOccurrences("lemma-occurrences", lemmaMatches, id);
     }
 
-    // Справка не блокирует карточку: запрос уходит после заполнения полей.
     loadDictionary(token.lemma || null, surface);
 
     if (scroll) {
@@ -183,10 +319,6 @@
     }
   }
 
-  /**
-   * Запрашивает у сервера краткую справку. Пока ответа нет — «загрузка».
-   * При отказе сети или статусе unavailable основные функции уже работают.
-   */
   function loadDictionary(lemma, surface) {
     const statusEl = document.getElementById("dictionary-status");
     const textEl = document.getElementById("dictionary-text");
@@ -297,21 +429,24 @@
     entries.forEach((key) => {
       const item = document.createElement("li");
       const val = features[key];
-      const shown =
-        val === null || val === undefined ? MISSING : String(val);
-      item.textContent = key + ": " + shown;
+      const keyRu = FEATURE_KEY_RU[key] || key;
+      let shown;
+      if (val === null || val === undefined) {
+        shown = MISSING;
+      } else {
+        const parts = String(val).split(",");
+        shown = parts
+          .map(function (part) {
+            const p = part.trim();
+            return FEATURE_VAL_RU[p] || p;
+          })
+          .join(", ");
+      }
+      item.textContent = keyRu + ": " + shown;
       list.append(item);
     });
   }
 
-  /**
-   * Список употреблений, сгруппированный по синтаксической роли.
-   *
-   * Текущее слово в список не входит.
-   * Порядок групп и элементов — порядок первых вхождений в документе
-   * (токены уже отсортированы по координате начала).
-   * Переход выбирает слово и прокручивает к нему.
-   */
   function renderGroupedOccurrences(listId, matches, currentId) {
     const root = document.getElementById(listId);
     if (!root) {
@@ -328,7 +463,6 @@
       return;
     }
 
-    // Сохраняем порядок первого появления роли в документе.
     const groups = new Map();
     others.forEach((token) => {
       const name = roleGroupName(token);
@@ -354,7 +488,6 @@
         const item = document.createElement("li");
         const button = document.createElement("button");
         const surface = sourceSlice(token.start, token.end);
-        // Краткий контекст: словоформа и позиция в тексте (с единицы для человека).
         button.type = "button";
         button.textContent =
           surface + " · позиция " + (token.start + 1);
@@ -372,7 +505,6 @@
     });
   }
 
-  // Сборка текста: неразмеченные фрагменты и кнопки слов.
   textRoot.replaceChildren();
   tokens.forEach((token) => {
     if (token.start < cursor) {
@@ -393,7 +525,9 @@
     button.textContent = sourceSlice(token.start, token.end);
     const label =
       sourceSlice(token.start, token.end) +
-      (token.syntax && token.syntax.role ? ", " + token.syntax.role : "");
+      (token.syntax && token.syntax.role
+        ? ", " + localizeCode(token.syntax.role, ROLE_RU)
+        : "");
     button.setAttribute("aria-label", label);
     button.addEventListener("click", () => selectToken(token.id, false));
     textRoot.append(button);
