@@ -6,8 +6,8 @@
 
 ## Состояние проекта
 
-Этапы 1–11 закрыты (реализация основных функций, проверки качества, пользовательская документация).  
-Релиз (этап 12) ещё не оформлен. Журнал — в [CURRENT_STATE.md](docs/development/CURRENT_STATE.md).
+Этапы 1–11 закрыты. Версия **0.1.0** подготовлена к выпуску ([заметки](docs/development/RELEASE_NOTES_0.1.0.md), [changelog](CHANGELOG.md)).  
+Тег `v0.1.0` и страница GitHub Release публикуются владельцем репозитория. Журнал — в [CURRENT_STATE.md](docs/development/CURRENT_STATE.md).
 
 Проверено 2026-10-17: `python -m pytest -q` — 62 passed.
 
