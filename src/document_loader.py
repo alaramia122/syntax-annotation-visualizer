@@ -90,7 +90,7 @@ def load_bytes(
     if len(raw) > max_bytes:
         return Rejected(
             413,
-            [f"Файл превышает допустимый размер {max_bytes // (1024 * 1024)} МиБ."],
+            [f"Файл превышает допустимый размер {max_bytes // (1024 * 1024)} Мб."],
         )
 
     try:
