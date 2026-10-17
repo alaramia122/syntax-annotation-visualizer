@@ -19,10 +19,12 @@ from dataclasses import dataclass
 from typing import Literal
 
 # Таймаут короткий: карточка уже показана, справка — дополнение.
-REQUEST_TIMEOUT_SEC = 4.0
+REQUEST_TIMEOUT_SEC = 8.0
+# Только ASCII: HTTP-заголовки кодируются как latin-1; кириллица
+# в User-Agent вызывала UnicodeEncodeError и статус unavailable.
 USER_AGENT = (
     "syntax-annotation-visualizer/0.1 "
-    "(учебный проект; https://github.com/alaramia122/syntax-annotation-visualizer)"
+    "(+https://github.com/alaramia122/syntax-annotation-visualizer; educational)"
 )
 WIKTIONARY_API = "https://ru.wiktionary.org/w/api.php"
 SOURCE_NAME = "Русский Викисловарь"
@@ -53,7 +55,7 @@ class DictionaryLookup:
 def _search_url(query: str) -> str:
     return (
         "https://ru.wiktionary.org/w/index.php?"
-        + urllib.parse.urlencode({"search": query, "title": "Служебная:Search"})
+        + urllib.parse.urlencode({"search": query, "title": "Special:Search"})
     )
 
 
@@ -115,6 +117,7 @@ def lookup(
             OSError,
             ValueError,
             json.JSONDecodeError,
+            UnicodeError,
         ):
             return DictionaryLookup(
                 status="unavailable",
